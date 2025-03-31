@@ -1,0 +1,10 @@
+.envrc
+keyfiles
+kube
+# Terraform state files <- Single Source of Truth (terraform plan)
+.terraform
+*.tfstate
+*.tfstate.*
+
+# Terraform version files <- For consistency
+.terraform.lock.hcl
