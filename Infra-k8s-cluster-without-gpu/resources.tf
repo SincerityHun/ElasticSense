@@ -1,5 +1,14 @@
 ########################################
-# 3. NFS 서버용 고정 IP 생성
+# 1. Project SSH Key 생성
+########################################
+resource "google_compute_project_metadata" "default" {
+  project = var.project_id
+  metadata = {
+    "ssh-keys" = "${file(var.ssh_user)}:${file(var.ssh_public_key_path)}"
+  }  
+}
+########################################
+# 2. NFS 서버용 고정 IP 생성
 ########################################
 resource "google_compute_address" "nfs_server_ip" {
   name    = "nfs-server-ip"
@@ -8,7 +17,7 @@ resource "google_compute_address" "nfs_server_ip" {
 }
 
 ########################################
-# 4. 인스턴스 생성
+# 3. 인스턴스 생성
 ########################################
 # (1) k8s-master
 resource "google_compute_instance" "k8s_master" {
@@ -37,6 +46,32 @@ resource "google_compute_instance" "k8s_master" {
   #   metadata_startup_script = file("scripts/k8s-master-startup.sh")
   # TAG
   tags = ["k8s-master", "kubeflow"]
+  # 1. File Copy
+  provisioner "file" {
+    connection {
+      type        = "ssh"
+      user        = file(var.ssh_user)
+      private_key = file(var.ssh_private_key_path)
+      host        = self.network_interface[0].access_config[0].nat_ip
+    }
+    source = "${path.root}/scripts/setup_nfs_client.sh"
+    destination = "/tmp/setup_nfs_client.sh"
+  }
+  # 2. Remote exec
+  provisioner "remote-exec" {
+    connection {
+      type        = "ssh"
+      user        = file(var.ssh_user)
+      private_key = file(var.ssh_private_key_path)
+      host        = self.network_interface[0].access_config[0].nat_ip
+    }
+    inline = [ 
+      "export NFS_SERVER_IP=${google_compute_address.nfs_server_ip.address}",
+      "chmod +x /tmp/setup_nfs_client.sh",
+      "/tmp/setup_nfs_client.sh" # NFS Client Setup
+     ]
+  }
+  depends_on = [ google_compute_instance.nfs_server ]
 }
 # (2) k8s-worker0
 resource "google_compute_instance" "k8s_worker0" {
@@ -58,6 +93,32 @@ resource "google_compute_instance" "k8s_worker0" {
   }
 
   tags = ["kubeflow"]
+  # 1. File Copy
+  provisioner "file" {
+    connection {
+      type        = "ssh"
+      user        = file(var.ssh_user)
+      private_key = file(var.ssh_private_key_path)
+      host        = self.network_interface[0].access_config[0].nat_ip
+    }
+    source = "${path.root}/scripts/setup_nfs_client.sh"
+    destination = "/tmp/setup_nfs_client.sh"
+  }
+  # 2. Remote exec
+  provisioner "remote-exec" {
+    connection {
+      type        = "ssh"
+      user        = file(var.ssh_user)
+      private_key = file(var.ssh_private_key_path)
+      host        = self.network_interface[0].access_config[0].nat_ip
+    }
+    inline = [ 
+      "export NFS_SERVER_IP=${google_compute_address.nfs_server_ip.address}",
+      "chmod +x /tmp/setup_nfs_client.sh",
+      "/tmp/setup_nfs_client.sh" # NFS Client Setup
+     ]
+  }
+  depends_on = [ google_compute_instance.nfs_server, google_compute_instance.k8s_master ]
 }
 # (3) k8s-worker1
 resource "google_compute_instance" "k8s_worker1" {
@@ -79,6 +140,32 @@ resource "google_compute_instance" "k8s_worker1" {
   }
 
   tags = ["kubeflow"]
+  # 1. File Copy
+  provisioner "file" {
+    connection {
+      type        = "ssh"
+      user        = file(var.ssh_user)
+      private_key = file(var.ssh_private_key_path)
+      host        = self.network_interface[0].access_config[0].nat_ip
+    }
+    source = "${path.root}/scripts/setup_nfs_client.sh"
+    destination = "/tmp/setup_nfs_client.sh"
+  }
+  # 2. Remote exec
+  provisioner "remote-exec" {
+    connection {
+      type        = "ssh"
+      user        = file(var.ssh_user)
+      private_key = file(var.ssh_private_key_path)
+      host        = self.network_interface[0].access_config[0].nat_ip
+    }
+    inline = [ 
+      "export NFS_SERVER_IP=${google_compute_address.nfs_server_ip.address}",
+      "chmod +x /tmp/setup_nfs_client.sh",
+      "/tmp/setup_nfs_client.sh" # NFS Client Setup
+     ]
+  }
+  depends_on = [ google_compute_instance.nfs_server, google_compute_instance.k8s_master ]
 }
 
 # (4) k8s-worker2
@@ -101,6 +188,32 @@ resource "google_compute_instance" "k8s_worker2" {
   }
 
   tags = ["kubeflow"]
+  # 1. File Copy
+  provisioner "file" {
+    connection {
+      type        = "ssh"
+      user        = file(var.ssh_user)
+      private_key = file(var.ssh_private_key_path)
+      host        = self.network_interface[0].access_config[0].nat_ip
+    }
+    source = "${path.root}/scripts/setup_nfs_client.sh"
+    destination = "/tmp/setup_nfs_client.sh"
+  }
+  # 2. Remote exec
+  provisioner "remote-exec" {
+    connection {
+      type        = "ssh"
+      user        = file(var.ssh_user)
+      private_key = file(var.ssh_private_key_path)
+      host        = self.network_interface[0].access_config[0].nat_ip
+    }
+    inline = [ 
+      "export NFS_SERVER_IP=${google_compute_address.nfs_server_ip.address}",
+      "chmod +x /tmp/setup_nfs_client.sh",
+      "/tmp/setup_nfs_client.sh" # NFS Client Setup
+     ]
+  }
+  depends_on = [ google_compute_instance.nfs_server, google_compute_instance.k8s_master ]
 }
 
 # (5) nfs-server
@@ -137,4 +250,7 @@ resource "google_compute_instance" "nfs_server" {
   }
 
   tags = ["kubeflow"]
+
+  # setup NFS server
+  metadata_startup_script = file("${path.root}/scripts/setup_nfs_server.sh")
 }

@@ -45,3 +45,21 @@ variable "firewall_ports" {
   default = [ "22", "8080", "8081", "8082", "8888", "2049" ]
   
 }
+
+variable "ssh_user" {
+  description = "SSH user"
+  type        = string
+  default     = "../keyfiles/.ssh/username"
+}
+
+variable "ssh_public_key_path" {
+  description = "SSH public key path"
+  type        = string
+  default     = "../keyfiles/.ssh/google_compute_engine.pub"
+}
+
+variable "ssh_private_key_path" {
+  description = "SSH private key path"
+  type        = string
+  default     = "../keyfiles/.ssh/google_compute_engine"
+}

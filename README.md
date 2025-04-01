@@ -6,8 +6,16 @@
 
 1. /keyfiles/{GOOGLE SERVICE ACCOUNT KEY FILE JSON}
 
-2. /kube/config
+https://cloud.google.com/iam/docs/best-practices-for-managing-service-account-keys
 
-3. .envrc
+2. /keyfiles/{SSH PRIVATE KEY}
+
+https://cloud.google.com/compute/docs/connect/create-ssh-keys?hl=ko 
+
+3. /keyfiles/{username}
+
+    set google ssh/OS login username
+
+4. /kube/config
 
 ---
