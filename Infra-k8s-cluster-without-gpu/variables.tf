@@ -42,7 +42,7 @@ variable "firewall_sources" {
 variable "firewall_ports" {
   description = "values for the firewall ports"
   type        = list(string)
-  default = [ "22", "8080", "8081", "8082", "8888", "2049" ]
+  default = [ "22", "8080", "8081", "8082", "8888", "2049", "6443" ]
   
 }
 

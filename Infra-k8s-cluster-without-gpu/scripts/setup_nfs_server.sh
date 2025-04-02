@@ -19,3 +19,7 @@ echo '/dev/sdb /mnt/nfs_share ext4 defaults 0 0' | sudo tee -a /etc/fstab # fsta
 echo '/mnt/nfs_share *(rw,sync,no_subtree_check)' | sudo tee -a /etc/exports # NFS exports 등록
 sudo exportfs -rav # IP Open
 sudo systemctl restart nfs-kernel-server # NFS 서버 재시작
+
+# Fix the permission of the NFS share directory
+sudo chown nobody:nogroup /mnt/nfs_share
+sudo chmod 777 /mnt/nfs_share
