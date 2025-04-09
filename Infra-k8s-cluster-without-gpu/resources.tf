@@ -68,8 +68,8 @@ resource "google_compute_instance" "k8s_master" {
     source = "${path.root}/scripts/setup_k8s_master.sh"
     destination = "/tmp/setup_k8s_master.sh"
   }
-
-  # 3. Remote exec
+  
+  # 3. Remote exec for k8s cluster
   provisioner "remote-exec" {
     connection {
       type        = "ssh"
@@ -83,8 +83,10 @@ resource "google_compute_instance" "k8s_master" {
       "/tmp/setup_nfs_client.sh", # NFS Client Setup
       "chmod +x /tmp/setup_k8s_master.sh",
       "/tmp/setup_k8s_master.sh", # K8s Master Setup
+      "mkdir -p /tmp/setup_kubeflow",
      ]
   }
+
   depends_on = [ google_compute_instance.nfs_server ]
 }
 # (2) k8s-worker0
@@ -306,4 +308,36 @@ resource "google_compute_instance" "nfs_server" {
 
   # setup NFS server
   metadata_startup_script = file("${path.root}/scripts/setup_nfs_server.sh")
+}
+
+# (6) Setup Kubeflow
+resource "null_resource" "kubeflow" {
+  depends_on = [ google_compute_instance.k8s_master, google_compute_instance.k8s_worker0, google_compute_instance.nfs_server ]
+  # 1. File Copy for setup kubeflow
+  provisioner "file" {
+    connection {
+      type        = "ssh"
+      user        = file(var.ssh_user)
+      private_key = file(var.ssh_private_key_path)
+      host        = google_compute_instance.k8s_master.network_interface[0].access_config[0].nat_ip
+    }
+    source = "${path.root}/scripts/setup_kubeflow/"
+    destination = "/tmp/setup_kubeflow"
+  }
+  # 2. Remote exec for setup kubeflow
+  provisioner "remote-exec" {
+    connection {
+      type        = "ssh"
+      user        = file(var.ssh_user)
+      private_key = file(var.ssh_private_key_path)
+      host        = google_compute_instance.k8s_master.network_interface[0].access_config[0].nat_ip 
+    }
+    inline = [ 
+      "export NFS_SERVER_IP=${google_compute_address.nfs_server_ip.address}",
+      "chmod +x /tmp/setup_kubeflow/nfs_external_provisioner/setup_nfs_external_provisioner.sh",
+      "/tmp/setup_kubeflow/nfs_external_provisioner/setup_nfs_external_provisioner.sh", # NFS External Provisioner Setup
+      "chmod +x /tmp/setup_kubeflow/kustomize/setup_kustomize.sh",
+      "/tmp/setup_kubeflow/kustomize/setup_kustomize.sh", # Kustomize Setup
+     ]
+  }
 }

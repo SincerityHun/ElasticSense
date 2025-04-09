@@ -173,7 +173,8 @@ curl -O https://raw.githubusercontent.com/projectcalico/calico/v3.29.3/manifests
 curl -O https://raw.githubusercontent.com/projectcalico/calico/v3.29.3/manifests/custom-resources.yaml
 
 # Apply the Tigera operator
-kubectl create -f tigera-operator.yaml
+kubectl create -f tigera-operator.yaml # Do not use apply - https://github.com/projectcalico/calico/issues/6491
+kubectl wait --for=condition=Established --timeout=60s crd/installations.operator.tigera.io
 
 # Custom Resource modify CIDR
 sed -ie 's/192.168.0.0\/16/172.24.0.0\/24/g' custom-resources.yaml
@@ -185,3 +186,13 @@ kubectl taint nodes --all  node-role.kubernetes.io/control-plane-
 # Get the Token for it
 kubeadm token create --print-join-command > /tmp/k8s_join_command.sh
 sudo cp /tmp/k8s_join_command.sh /mnt/nfs_client/k8s_join_command.sh
+
+########################################
+# Step8: Install Helm (v3.17.0)
+# https://helm.sh/docs/intro/install/
+########################################
+mkdir -p /tmp/helm
+cd /tmp/helm
+curl -L https://get.helm.sh/helm-v3.17.0-linux-amd64.tar.gz -o helm-v3.17.0-linux-amd64.tar.gz
+tar -xzf helm-v3.17.0-linux-amd64.tar.gz
+sudo mv linux-amd64/helm /usr/local/bin/helm
