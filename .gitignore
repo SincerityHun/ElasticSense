@@ -8,3 +8,6 @@ kube
 
 # Terraform version files <- For consistency
 .terraform.lock.hcl
+
+# Log files
+*.log

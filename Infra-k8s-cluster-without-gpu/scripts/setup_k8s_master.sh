@@ -178,7 +178,7 @@ kubectl wait --for=condition=Established --timeout=60s crd/installations.operato
 
 # Custom Resource modify CIDR
 sed -ie 's/192.168.0.0\/16/172.24.0.0\/24/g' custom-resources.yaml
-kubectl create -f custom-resources.yaml
+kubectl create -f custom-resources.yaml 
 
 # let master node can install pod
 kubectl taint nodes --all  node-role.kubernetes.io/control-plane-
