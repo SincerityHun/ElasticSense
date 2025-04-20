@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euxo pipefail
-cd /tmp/setup_kubeflow/kustomize
+cd /tmp/setup_modules/kustomize
 ########################################
 # Step1: Kustomize extract (version v5.4.3)
 # https://github.com/kubernetes-sigs/kustomize/releases/tag/kustomize%2Fv5.4.3

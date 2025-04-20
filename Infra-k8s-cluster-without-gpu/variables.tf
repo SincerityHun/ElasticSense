@@ -6,13 +6,13 @@ variable "project_id" {
 variable "region" {
   description = "GCP Region"
   type        = string
-  default     = "us-central1"
+  default     = "asia-northeast3"
 }
 
 variable "zone" {
   description = "GCP Zone"
   type        = string
-  default     = "us-central1-a"
+  default     = "asia-northeast3-a"
 }
 
 variable "vpc_name" {
@@ -33,17 +33,23 @@ variable "subnet_cidr" {
   default     = "10.10.0.0/20"
 }
 
-variable "firewall_sources" {
-  description = "values for the firewall sources"
-  type        = list(string)
-  default     = ["0.0.0.0/0"]
+variable "default_firewall_rules_enabled" {
+  description = "If true, default firewall rules will be added to the firewall rules"
+  type        = bool
+  default     = true
+  
 }
-
-variable "firewall_ports" {
-  description = "values for the firewall ports"
-  type        = list(string)
-  # For CNI Ports (179, 9099, 5473) - https://stackoverflow.com/questions/69190171/calico-kube-controllers-and-calico-node-are-not-ready-crashloopbackoff
-  default = ["22", "80", "8080", "8081", "8082", "8888", "2049", "6443", "443", "179", "10250", "9099", "5473"]
+variable "firewall_rules" { # 사용자 추가 firewall_rules
+  description = "Map of firewall rules which is user customized"
+  type        = map(object({
+    protocol         = string
+    ports            = optional(list(string))
+    priority         = string
+    description      = string
+    tags             = optional(list(string))
+    source_ip_ranges = optional(list(string))
+  }))
+  default = {}
 }
 
 variable "ssh_user" {
@@ -62,4 +68,10 @@ variable "ssh_private_key_path" {
   description = "SSH private key path"
   type        = string
   default     = "../keyfiles/.ssh/google_compute_engine"
+}
+
+variable "compute_machine_type" {
+  description = "Compute machine type"
+  type        = list(string)
+  default     = ["e2-standard-8", "e2-standard-4", "e2-standard-2"] # k8s-master, k8s-node, nfs-server
 }

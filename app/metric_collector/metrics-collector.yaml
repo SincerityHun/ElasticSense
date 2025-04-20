@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metrics-collector
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: metrics-collector
+  template:
+    metadata:
+      labels:
+        app: metrics-collector
+    spec:
+      serviceAccountName: metrics-collector-sa
+      containers:
+      - name: collector
+        image: python:3.11
+        # command: ["python", "/app/collect.py"]
+        command:
+        - /bin/sh
+        - -c
+        - |
+          pip install -r /app/requirements.txt && \
+          python /app/collect.py
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app
+        ports:
+        - containerPort: 8000
+        # env:
+        # - name: DCGM_EXPORTER_URL
+        #   value: "http://dcgm-exporter:9400/metrics"
+      volumes:
+      - name: config-volume
+        configMap:
+          name: metrics-collector-config
+          defaultMode: 0755

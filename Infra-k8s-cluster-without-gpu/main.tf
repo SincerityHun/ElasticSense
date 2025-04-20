@@ -18,6 +18,6 @@ module "vpc"{
   subnet_cidr = var.subnet_cidr
   project_id = var.project_id
   region = var.region
-  firewall_sources = var.firewall_sources
-  firewall_ports = var.firewall_ports
+  default_firewall_rules_enabled = var.default_firewall_rules_enabled
+  firewall_rules = var.firewall_rules
 }

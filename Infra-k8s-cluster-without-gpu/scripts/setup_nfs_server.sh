@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-
 set -euxo pipefail
 ########################################
 # Step1: Install NFS server packages
 ########################################
+sudo rm -r /var/lib/apt/lists/*
 sudo apt-get update -y
 sudo apt-get install -y nfs-kernel-server
 

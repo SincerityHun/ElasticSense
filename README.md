@@ -2,7 +2,7 @@
 
 - Elastic Scheduling for Distributed Learning in Kubernetes: Enhancing Resource Utilization and Efficiency with Non Intrusive Scheduler for DL Workloads.
 
-### Setting Infra Envronments
+### Setting Cloud Infra Envronments
 
 1. [/keyfiles/{GOOGLE_SERVICE_ACCOUNT_KEY_FILE}.json](https://cloud.google.com/iam/docs/best-practices-for-managing-service-account-keys)
 
@@ -25,3 +25,24 @@
     terraform apply -auto-approve 2>&1 | tee terraform-apply.log
 ```
 ---
+
+### Setting Local Infra Environments
+
+1. Setting Local-path-provisioner
+
+https://github.com/rancher/local-path-provisioner
+
+2. [Setting Prometheus](https://hackmd.io/@OrALpDtKSY6QetSsHgj-IA/BJXuuNmYP)
+
+```bash
+    
+```
+
+    Prometheus: http://<nodeIP>:30000/graph
+    AlertManager: http://<nodeIP>:32000/graph
+    Grafana: http://<nodeIP>:32000/graph
+
+    User: admin
+    Pass: prom-operator
+
+

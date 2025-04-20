@@ -1,12 +1,4 @@
 ########################################
-# 1. NFS Server IP
-########################################
-output "nfs_server_ip" {
-  description = "NFS Server IP"
-  value       = google_compute_address.nfs_server_ip.address
-}
-
-########################################
 # 5. k8s-master external IP
 ########################################
 output "k8s_master_external_ip" {

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euxo pipefail
-cd /tmp/setup_kubeflow/nfs_external_provisioner
+cd /tmp/setup_modules/nfs_external_provisioner
 ########################################
 # Step1: Fix NFS deployment
 ########################################

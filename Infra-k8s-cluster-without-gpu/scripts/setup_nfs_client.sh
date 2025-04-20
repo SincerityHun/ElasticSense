@@ -4,8 +4,12 @@ set -euxo pipefail
 ########################################
 # Step1: Install NFS client packages ( Ubuntu )
 ########################################
+sudo apt-get clean
+sudo apt-get autoclean
 sudo apt-get update -y
-sudo apt-get install -y nfs-common
+sudo apt-get dist-upgrade -y
+sudo apt-get update -y
+sudo apt-get -f -y install nfs-common
 
 ########################################
 # Step2: NFS mount

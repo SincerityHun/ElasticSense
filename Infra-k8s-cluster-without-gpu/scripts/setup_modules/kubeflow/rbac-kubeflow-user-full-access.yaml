@@ -1,0 +1,95 @@
+# ------------------------------------------------------------
+# RBAC – grant full access to all Kubeflow service UIs
+# Namespace : kubeflow-user-example-com
+# Subject   : user@example.com
+# ------------------------------------------------------------
+# 1) Notebooks
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: user-notebooks-admin
+  namespace: kubeflow-user-example-com
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: notebook-controller-kubeflow-notebooks-admin
+subjects:
+- kind: User
+  name: user@example.com
+  apiGroup: rbac.authorization.k8s.io
+---
+# 2) TensorBoard
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: user-tensorboards-admin
+  namespace: kubeflow-user-example-com
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: tensorboards-web-app-cluster-role 
+subjects:
+- kind: User
+  name: user@example.com
+  apiGroup: rbac.authorization.k8s.io
+---
+# 3) Volumes (PVC UI)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: user-volumes-admin
+  namespace: kubeflow-user-example-com
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: volumes-web-app-cluster-role  
+subjects:
+- kind: User
+  name: user@example.com
+  apiGroup: rbac.authorization.k8s.io
+---
+# 4) Katib
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: user-katib-admin
+  namespace: kubeflow-user-example-com
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubeflow-katib-admin
+subjects:
+- kind: User
+  name: user@example.com
+  apiGroup: rbac.authorization.k8s.io
+---
+# 5) KServe / Models
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: user-kserve-admin
+  namespace: kubeflow-user-example-com
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubeflow-kserve-admin
+subjects:
+- kind: User
+  name: user@example.com
+  apiGroup: rbac.authorization.k8s.io
+---
+# 6) Pipelines
+# Kubeflow 1.8+ 기본 ClusterRole는 edit 수준이므로 이를 사용
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: user-pipelines-edit
+  namespace: kubeflow-user-example-com
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kubeflow-pipelines-edit
+subjects:
+- kind: User
+  name: user@example.com
+  apiGroup: rbac.authorization.k8s.io

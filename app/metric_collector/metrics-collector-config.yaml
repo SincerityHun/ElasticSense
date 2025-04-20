@@ -1,0 +1,113 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: metrics-collector-config
+data:
+  collect.py: |
+    #!/usr/bin/env python3
+    import time
+    import re
+    # import json
+    import os
+    import requests
+    from kubernetes import client, config
+    from prometheus_client import start_http_server, Gauge
+
+
+    # 메트릭 정의
+    ITERATION_RATE = Gauge('dl_iteration_rate', 'Deep Learning Iteration Rate per second', ['pod_name', 'namespace'])
+    GPU_UTILIZATION = Gauge('dl_gpu_utilization', 'GPU Utilization Percentage', ['pod_name', 'namespace', 'gpu_id'])
+    GPU_MEMORY_USAGE = Gauge('dl_gpu_memory_usage', 'GPU Memory Usage in MB', ['pod_name', 'namespace', 'gpu_id'])
+
+    def parse_iteration_from_logs(pod_name, namespace):
+        """로그에서 iteration 정보를 파싱"""
+        try:
+            api = client.CoreV1Api()
+            logs = api.read_namespaced_pod_log(name=pod_name, namespace=namespace, tail_lines=100)
+            
+            # 로그에서 iteration 정보 추출 (정규표현식 패턴은 실제 로그 형식에 맞게 조정 필요)
+            iterations = re.findall(r'iteration: (\d+).*time: ([\d\.]+)', logs)
+            if not iterations or len(iterations) < 2:
+                return 0
+                
+            # 가장 최근 두 개의 iteration으로 속도 계산
+            latest = iterations[-1]
+            prev = iterations[-2]
+            iter_diff = int(latest[0]) - int(prev[0])
+            time_diff = float(latest[1]) - float(prev[1])
+            
+            if time_diff > 0:
+                return iter_diff / time_diff
+            return 0
+        except Exception as e:
+            print(f"Error parsing iterations: {str(e)}")
+            return 0
+
+    def collect_gpu_metrics(pod_name, namespace):
+        """DCGM 익스포터 또는 Node Exporter에서 GPU 메트릭 수집"""
+        try:
+            # 실제 환경에서는 DCGM exporter의 엔드포인트를 사용
+            # 여기서는 예시로 로컬 엔드포인트를 사용
+            dcgm_url = os.environ.get('DCGM_EXPORTER_URL', 'http://localhost:9400/metrics')
+            response = requests.get(dcgm_url)
+            
+            # 예시: 응답에서 GPU 사용량 파싱
+            for line in response.text.split('\n'):
+                # GPU 사용량 파싱 로직 구현
+                # 실제 메트릭 형식에 맞게 정규식 조정 필요
+                if 'DCGM_FI_DEV_GPU_UTIL' in line and pod_name in line:
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        gpu_id = re.search(r'gpu="(\d+)"', line).group(1)
+                        utilization = float(parts[-1])
+                        GPU_UTILIZATION.labels(pod_name=pod_name, namespace=namespace, gpu_id=gpu_id).set(utilization)
+                
+                # GPU 메모리 사용량 파싱
+                if 'DCGM_FI_DEV_FB_USED' in line and pod_name in line:
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        gpu_id = re.search(r'gpu="(\d+)"', line).group(1)
+                        memory = float(parts[-1]) / (1024 * 1024)  # 바이트에서 MB로 변환
+                        GPU_MEMORY_USAGE.labels(pod_name=pod_name, namespace=namespace, gpu_id=gpu_id).set(memory)
+                        
+        except Exception as e:
+            print(f"Error collecting GPU metrics: {str(e)}")
+
+    def main():
+        # 쿠버네티스 설정 로드
+        try:
+            config.load_incluster_config()  # 클러스터 내부에서 실행 시
+        except Exception as e:
+            config.load_kube_config()  # 로컬 개발 시
+        
+        # 메트릭 서버 시작
+        start_http_server(8000)
+        
+        while True:
+            # 모니터링할 파드 목록 가져오기 (라벨 선택자를 사용하여 딥러닝 작업만 필터링)
+            v1 = client.CoreV1Api()
+            pods = v1.list_pod_for_all_namespaces(label_selector="app=deep-learning-job")
+            
+            for pod in pods.items:
+                pod_name = pod.metadata.name
+                namespace = pod.metadata.namespace
+                
+                # Iteration 속도 수집 및 게시
+                iter_rate = parse_iteration_from_logs(pod_name, namespace)
+                ITERATION_RATE.labels(pod_name=pod_name, namespace=namespace).set(iter_rate)
+                
+                # GPU 메트릭 수집
+                # collect_gpu_metrics(pod_name, namespace)
+                
+            # 10초마다 메트릭 수집
+            time.sleep(10)
+
+    if __name__ == "__main__":
+        main()
+  requirements.txt: |
+    kubernetes
+    prometheus_client
+    requests
+    # dcgm-exporter-client  # 실제 환경에서는 이 라이브러리를 사용하여 DCGM 메트릭을 수집
+    # tensorflow  # 실제 환경에서는 이 라이브러리를 사용하여 GPU 메트릭을 수집
+    # torch  # 실제 환경에서는 이 라이브러리를 사용하여 GPU 메트릭을 수집

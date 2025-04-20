@@ -1,0 +1,25 @@
+# https://github.com/kubeflow/pipelines/issues/8733
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pipelines-artifact-role
+  namespace: kubeflow-user-example-com
+rules:
+- apiGroups: [""]
+  resources: ["configmaps","secrets","pods"]
+  verbs: ["create","get","list","watch","patch","delete"]
+
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: default-editor-pipelines-artifact
+  namespace: kubeflow-user-example-com
+subjects:
+- kind: ServiceAccount
+  name: default-editor
+  namespace: kubeflow-user-example-com
+roleRef:
+  kind: Role
+  name: pipelines-artifact-role
+  apiGroup: rbac.authorization.k8s.io

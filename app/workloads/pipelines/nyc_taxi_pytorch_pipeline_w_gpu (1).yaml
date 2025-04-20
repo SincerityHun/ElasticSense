@@ -1,0 +1,346 @@
+# PIPELINE DEFINITION (https://docs.kakaocloud.com/tutorial/machine-learning-ai/kubeflow-use-pipeline)
+# Name: nyc-taxi-pytorch-ml-pipeline
+# Description: An example pipeline.
+# Inputs:
+#    epoch_num: str [Default: '100']
+#    kc_kbm_os_train_url: str [Default: 'https://objectstorage.kr-central-2.kakaocloud.com/v1/252267c6b6f745eba8b850ec047b673e/kbm-files/guide_docs/hands_on/nyc_taxi_fare/data/train.csv']
+components:
+  comp-download-dataset:
+    executorLabel: exec-download-dataset
+    inputDefinitions:
+      parameters:
+        csv_url:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        nyc_taxi_dataset:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-evaluate-pytorch-tabular-model:
+    executorLabel: exec-evaluate-pytorch-tabular-model
+    inputDefinitions:
+      artifacts:
+        model_dir:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+    outputDefinitions:
+      artifacts:
+        mlpipeline_ui_metadata:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+  comp-train-pytorch-tabular-model:
+    executorLabel: exec-train-pytorch-tabular-model
+    inputDefinitions:
+      artifacts:
+        training_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        epoch_num:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        mlpipeline_ui_metadata:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+        model_dir:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+deploymentSpec:
+  executors:
+    exec-download-dataset:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - download_dataset
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.8.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"'  &&\
+          \  python3 -m pip install --quiet --no-warn-script-location 'pandas==1.3.5'\
+          \ && \"$0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef download_dataset(\n    csv_url: str,\n    nyc_taxi_dataset: Output[Dataset]\n\
+          ):\n    import pandas as pd\n\n    if not csv_url:\n        csv_url = 'https://objectstorage.kr-central-2.kakaocloud.com/v1/252267c6b6f745eba8b850ec047b673e/kbm-files/guide_docs/hands_on/nyc_taxi_fare/data/train.csv'\n\
+          \n    print(csv_url)\n    df = pd.read_csv(csv_url)\n    print(df)\n\n \
+          \   with open(nyc_taxi_dataset.path, 'w') as f:\n        df.to_csv(f)\n\n"
+        image: python:3.8
+        resources:
+          cpuRequest: 1.0
+          memoryRequest: 2.0
+    exec-evaluate-pytorch-tabular-model:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - evaluate_Pytorch_Tabular_Model
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.8.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef evaluate_Pytorch_Tabular_Model(\n    model_dir: Input[Artifact],\n\
+          \    mlpipeline_ui_metadata: OutputPath(\"UI_Metadata\")\n):\n    import\
+          \ os\n    import torch \n    import torch.nn as nn\n    import pandas as\
+          \ pd\n    import numpy as np\n    import json\n    import pathlib\n\n  \
+          \  device = torch.device('cpu')\n\n    if torch.cuda.is_available():\n \
+          \       device = torch.device('cuda')\n        print(\"Train on GPU.\")\n\
+          \    else:\n        print(\"No cuda available\")\n\n    print(model_dir.path)\n\
+          \    print(os.listdir(model_dir.path))\n\n    class TabularModel(nn.Module):\n\
+          \n        def __init__(self, emb_sizes, n_cont, out_szs, layers, p=0.5):\n\
+          \            super().__init__()\n\n            self.embeds = nn.ModuleList([nn.Embedding(ni,\
+          \ nf) for ni,nf in emb_sizes])\n            self.emb_drop = nn.Dropout(p)\n\
+          \            self.bn_cont = nn.BatchNorm1d(n_cont)\n\n            layer_list\
+          \ = []\n            n_emb = sum([nf for ni,nf in emb_sizes])\n         \
+          \   n_in = n_emb + n_cont\n\n            for i in layers:\n            \
+          \    layer_list.append(nn.Linear(n_in, i))\n                layer_list.append(nn.ReLU(inplace=True))\n\
+          \                layer_list.append(nn.BatchNorm1d(i))\n                layer_list.append(nn.Dropout(p))\n\
+          \                n_in = i\n\n            layer_list.append(nn.Linear(layers[-1],\
+          \ out_szs))\n\n            self.layers = nn.Sequential(*layer_list)\n\n\
+          \        def forward(self, x_cat, x_cont):\n            embeddings = []\n\
+          \n            for i,e in enumerate(self.embeds):\n                embeddings.append(e(x_cat[:,i]))\n\
+          \n            x = torch.cat(embeddings, 1)\n            x = self.emb_drop(x)\n\
+          \n            x_cont = self.bn_cont(x_cont)\n            x = torch.cat([x,x_cont],\
+          \ 1)\n            x = self.layers(x)\n\n            return x\n\n\n    criterion\
+          \ = nn.MSELoss()\n    emb_szs = [(24, 12), (2, 1), (7, 4)]\n    model =\
+          \ TabularModel(emb_szs, 6, 1, [200,100], p=0.4)\n    optimizer = torch.optim.Adam(model.parameters(),\
+          \ lr=0.01)\n\n    model.load_state_dict(torch.load(os.path.join(model_dir.path,\
+          \ 'model.pt')))\n    model.to(device)\n\n    con_test = torch.load(os.path.join(model_dir.path,\
+          \ 'con_test.pt'), map_location=torch.device(device))\n    print(\"con_test\"\
+          , con_test)\n    cat_test = torch.load(os.path.join(model_dir.path, 'cat_test.pt'),\
+          \ map_location=torch.device(device))\n    print(\"cat_test\", cat_test)\n\
+          \    y_test = torch.load(os.path.join(model_dir.path, 'y_test.pt'), map_location=torch.device(device))\n\
+          \    print(\"y_test\", y_test)\n\n\n    model.eval()\n    ### Evaluating\
+          \ our model on the test set\n    with torch.no_grad():\n        y_val =\
+          \ model(cat_test, con_test)\n        loss = torch.sqrt(criterion(y_val,\
+          \ y_test))\n\n    source_lst = [[\"PREDICTED VALUES\", \"TRUE VALUES\",\
+          \ \"DIFF\"]]\n    for i in range(20):\n        diff = np.abs(y_val[i].item()-y_test[i].item())\n\
+          \        print(f'PREDICTED VALUES : {y_val[i].item():8.4f} TRUE VALUES :\
+          \ {y_test[i].item():8.2f} DIFF : {diff:8.2f}')\n        source_lst.append([y_val[i].item(),\
+          \ y_test[i].item(), diff])\n\n    metadata = {\n        \"outputs\": [\n\
+          \            {\n                \"type\": \"table\",\n                \"\
+          storage\": \"inline\",\n                'format': 'csv',\n             \
+          \   'header': source_lst[0],\n                \"source\": pd.DataFrame(source_lst[1:],\
+          \ columns=source_lst[0]).to_csv(header=False, index=False),\n          \
+          \  },\n        ],\n    }\n\n    pathlib.Path(mlpipeline_ui_metadata).parent.mkdir(parents=True,\
+          \ exist_ok=True)\n    with open(mlpipeline_ui_metadata, \"w\") as html_writer:\n\
+          \        json.dump(metadata, html_writer)\n\n"
+        image: bigdata-150.kr-central-2.kcr.dev/kc-kubeflow/kmlp-pytorch:v1.8.0.py311.cuda.1a
+        resources:
+          # accelerator: 
+          #   count: '1'
+          #   type: nvidia.com/mig-1g.10gb
+          cpuRequest: 2.0
+          memoryRequest: 8.0
+    exec-train-pytorch-tabular-model:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - train_Pytorch_Tabular_Model
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.8.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef train_Pytorch_Tabular_Model(\n    training_data: Input[Dataset],\n\
+          \    model_dir: Output[Artifact],\n    mlpipeline_ui_metadata: OutputPath(\"\
+          UI_Metadata\"),\n    epoch_num: str\n):\n    import os\n    import pathlib\n\
+          \    import torch \n    import torch.nn as nn\n    import pandas as pd\n\
+          \    import numpy as np\n\n    pd.options.display.max_columns = None\n\n\
+          \    device = torch.device('cpu')\n\n    if torch.cuda.is_available():\n\
+          \        device = torch.device('cuda')\n        print(\"Train on GPU.\"\
+          )\n    else:\n        print(\"No cuda available\")\n\n    pathlib.Path(model_dir.path).mkdir(parents=True,\
+          \ exist_ok=True)\n    pathlib.Path(mlpipeline_ui_metadata).parent.mkdir(parents=True,\
+          \ exist_ok=True)\n\n    with open(training_data.path) as f:\n        df\
+          \ = pd.read_csv(f)\n\n    print(df)\n\n    def haversine_distance(df, lat1,\
+          \ long1, lat2, long2):\n        \"\"\"\n        Calculates the haversine\
+          \ distance between 2 sets of GPS coordinates in df\n        \"\"\"\n   \
+          \     r = 6371  # average radius of Earth in kilometers\n\n        phi1\
+          \ = np.radians(df[lat1])  # converting the longitude and latidtude into\
+          \ numpy radians\n        phi2 = np.radians(df[lat2])\n\n        delta_phi\
+          \ = np.radians(df[lat2]-df[lat1])\n        delta_lambda = np.radians(df[long2]-df[long1])\n\
+          \n        a = np.sin(delta_phi/2)**2 + np.cos(phi1) * np.cos(phi2) * np.sin(delta_lambda/2)**2\n\
+          \        c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1-a))\n        d = (r *\
+          \ c) # in kilometers\n\n        return d\n\n    df['distance_km'] = haversine_distance(df,\
+          \ 'pickup_latitude', 'pickup_longitude','dropoff_latitude','dropoff_longitude')\n\
+          \    df.drop(columns=['key'], inplace=True, errors='ignore')\n\n    df['pickup_datetime']\
+          \ = pd.to_datetime(df['pickup_datetime'])\n\n    df['edtdate'] = df['pickup_datetime']\
+          \ - pd.Timedelta(hours=4)\n\n    df['Hour'] = df['edtdate'].dt.hour\n  \
+          \  df['am_or_pm'] = np.where(df['Hour']<12, 'am', 'pm')\n    df['weekday']\
+          \ = df['edtdate'].dt.strftime(\"%a\")\n\n    print(df.columns)\n    print(df.info())\n\
+          \n    cat_cols = ['Hour', 'am_or_pm', 'weekday']\n    cont_cols = ['pickup_longitude',\n\
+          \           'pickup_latitude', 'dropoff_longitude', 'dropoff_latitude',\n\
+          \           'passenger_count', 'distance_km']\n    y_col = ['fare_amount']\n\
+          \n\n    for cat in cat_cols:\n        df[cat] = df[cat].astype('category')\n\
+          \n    hr = df['Hour'].cat.codes.values\n    am_pm = df['am_or_pm'].cat.codes.values\n\
+          \    wkdy = df['weekday'].cat.codes.values\n\n    cats = np.stack([hr,am_pm,wkdy],\
+          \ axis=1)\n    cats = torch.tensor(cats, dtype=torch.int64)\n\n    conts\
+          \ = np.stack([df[col].values for col in cont_cols], axis=1)\n    conts =\
+          \ torch.tensor(conts, dtype=torch.float)\n\n    print(conts.shape)\n\n \
+          \   y = torch.tensor(df[y_col].values, dtype=torch.float).reshape(-1,1)\n\
+          \    print(y.shape)\n\n    cat_sizes = [len(df[col].cat.categories) for\
+          \ col in cat_cols]\n    emb_sizes = [(size, min(50,(size+1)//2)) for size\
+          \ in cat_sizes]\n    selfembeds = nn.ModuleList([nn.Embedding(ni, nf) for\
+          \ ni,nf in emb_sizes])\n\n    class TabularModel(nn.Module):\n\n       \
+          \ def __init__(self, emb_sizes, n_cont, out_szs, layers, p=0.5):\n     \
+          \       super().__init__()\n\n            self.embeds = nn.ModuleList([nn.Embedding(ni,\
+          \ nf) for ni,nf in emb_sizes])\n            self.emb_drop = nn.Dropout(p)\n\
+          \            self.bn_cont = nn.BatchNorm1d(n_cont)\n\n            layer_list\
+          \ = []\n            n_emb = sum([nf for ni,nf in emb_sizes])\n         \
+          \   n_in = n_emb + n_cont\n\n            for i in layers:\n            \
+          \    layer_list.append(nn.Linear(n_in, i))\n                layer_list.append(nn.ReLU(inplace=True))\n\
+          \                layer_list.append(nn.BatchNorm1d(i))\n                layer_list.append(nn.Dropout(p))\n\
+          \                n_in = i\n\n            layer_list.append(nn.Linear(layers[-1],\
+          \ out_szs))\n\n            self.layers = nn.Sequential(*layer_list)\n\n\
+          \        def forward(self, x_cat, x_cont):\n            embeddings = []\n\
+          \n            for i,e in enumerate(self.embeds):\n                embeddings.append(e(x_cat[:,i]))\n\
+          \n            x = torch.cat(embeddings, 1)\n            x = self.emb_drop(x)\n\
+          \n            x_cont = self.bn_cont(x_cont)\n            x = torch.cat([x,x_cont],\
+          \ 1)\n            x = self.layers(x)\n\n            return x\n\n    torch.manual_seed(33)\n\
+          \    model = TabularModel(emb_sizes, conts.shape[1], 1,[200,100], p=0.4)\n\
+          \n    print(model)\n\n    criterion = nn.MSELoss()\n    optimizer = torch.optim.Adam(model.parameters(),\
+          \ lr=0.01)\n\n    batch_size=60000\n    test_size = int(batch_size*0.2)\n\
+          \n    cat_train = cats[:batch_size-test_size]\n    cat_test = cats[batch_size-test_size:batch_size]\n\
+          \    con_train = conts[:batch_size-test_size]\n    con_test = conts[batch_size-test_size:batch_size]\n\
+          \n    y_train=y[:batch_size-test_size]\n    y_test = y[batch_size-test_size:batch_size]\n\
+          \n    torch.save(con_test, os.path.join(model_dir.path, 'con_test.pt'))\n\
+          \    torch.save(cat_test, os.path.join(model_dir.path, 'cat_test.pt'))\n\
+          \    torch.save(y_test, os.path.join(model_dir.path, 'y_test.pt'))\n\n \
+          \   import time\n\n    start_time = time.time()\n\n    final_losses = []\n\
+          \n    for epochs in range(int(epoch_num)):\n        optimizer.zero_grad()\n\
+          \        y_pred = model(cat_train, con_train)\n        loss = torch.sqrt(criterion(y_pred,\
+          \ y_train))\n        final_losses.append(loss)\n        loss.backward()\n\
+          \        optimizer.step()\n        print(f\"Epoch {epochs+1}, loss: {loss.item()}\"\
+          )\n\n    duration = time.time() - start_time\n    print(f\"Training took\
+          \ {duration/60} minutes\")\n\n    torch.save(model.state_dict(), os.path.join(model_dir.path,\
+          \ 'model.pt'))\n\n\n    import base64\n    import json\n    from io import\
+          \ BytesIO\n\n    import matplotlib.pyplot as plt\n\n    _final_losses =\
+          \ [_tensor.detach().numpy() for _tensor in final_losses]\n    plt.plot(range(int(epoch_num)),\
+          \ _final_losses)\n\n    tmpfile = BytesIO()\n    plt.savefig(tmpfile, format=\"\
+          png\")\n    encoded = base64.b64encode(tmpfile.getvalue()).decode(\"utf-8\"\
+          )\n\n    html = f\"<img src='data:image/png;base64,{encoded}'>\"\n    metadata\
+          \ = {\n        \"outputs\": [\n            {\n                \"type\":\
+          \ \"web-app\",\n                \"storage\": \"inline\",\n             \
+          \   \"source\": html,\n            },\n        ],\n    }\n\n    with open(mlpipeline_ui_metadata,\
+          \ \"w\") as html_writer:\n        json.dump(metadata, html_writer)\n\n"
+        image: bigdata-150.kr-central-2.kcr.dev/kc-kubeflow/kmlp-pytorch:v1.8.0.py311.cuda.1a
+        resources:
+          # accelerator:
+          #   count: '1'
+          #   type: nvidia.com/mig-1g.10gb
+          cpuRequest: 2.0
+          memoryRequest: 8.0
+pipelineInfo:
+  description: An example pipeline.
+  name: nyc-taxi-pytorch-ml-pipeline
+root:
+  dag:
+    tasks:
+      download-dataset:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-download-dataset
+        inputs:
+          parameters:
+            csv_url:
+              componentInputParameter: kc_kbm_os_train_url
+        taskInfo:
+          name: download-dataset
+      evaluate-pytorch-tabular-model:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-evaluate-pytorch-tabular-model
+        dependentTasks:
+        - train-pytorch-tabular-model
+        inputs:
+          artifacts:
+            model_dir:
+              taskOutputArtifact:
+                outputArtifactKey: model_dir
+                producerTask: train-pytorch-tabular-model
+        taskInfo:
+          name: evaluate-pytorch-tabular-model
+      train-pytorch-tabular-model:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-train-pytorch-tabular-model
+        dependentTasks:
+        - download-dataset
+        inputs:
+          artifacts:
+            training_data:
+              taskOutputArtifact:
+                outputArtifactKey: nyc_taxi_dataset
+                producerTask: download-dataset
+          parameters:
+            epoch_num:
+              componentInputParameter: epoch_num
+        taskInfo:
+          name: train-pytorch-tabular-model
+  inputDefinitions:
+    parameters:
+      epoch_num:
+        defaultValue: '100'
+        isOptional: true
+        parameterType: STRING
+      kc_kbm_os_train_url:
+        defaultValue: https://objectstorage.kr-central-2.kakaocloud.com/v1/252267c6b6f745eba8b850ec047b673e/kbm-files/guide_docs/hands_on/nyc_taxi_fare/data/train.csv
+        isOptional: true
+        parameterType: STRING
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.8.0
